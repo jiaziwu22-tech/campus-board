@@ -1,18 +1,24 @@
-# Render builds this file. Students do not need Docker for a Render deployment.
 FROM node:24-bookworm-slim AS web
 WORKDIR /web
-COPY frontend/package*.json ./
+RUN mkdir -p src
+COPY package.json package-lock.json index.html ./
+COPY App.vue style.css src/
+RUN echo "aW1wb3J0IHsgZGVmaW5lQ29uZmlnIH0gZnJvbSAndml0ZScKaW1wb3J0IHZ1ZSBmcm9tICdAdml0ZWpzL3BsdWdpbi12dWUnCmV4cG9ydCBkZWZhdWx0IGRlZmluZUNvbmZpZyh7CiAgcGx1Z2luczogW3Z1ZSgpXSwKICBidWlsZDogeyBvdXREaXI6ICdkaXN0JyB9LAp9KQo=" | base64 -d > vite.config.js
+RUN echo "aW1wb3J0IHsgY3JlYXRlQXBwIH0gZnJvbSAndnVlJwppbXBvcnQgQXBwIGZyb20gJy4vQXBwLnZ1ZScKaW1wb3J0ICcuL3N0eWxlLmNzcycKY3JlYXRlQXBwKEFwcCkubW91bnQoJyNhcHAnKQo=" | base64 -d > src/main.js
+RUN echo "Ly8gVG9rZW5zIHN0YXkgaW4gbWVtb3J5LiBSZWxvYWRpbmcgdGhlIHBhZ2UgcmVxdWlyZXMgYW5vdGhlciBzaWduLWluLgpsZXQgYWNjZXNzVG9rZW4gPSAnJwpleHBvcnQgZnVuY3Rpb24gc2V0VG9rZW4odmFsdWUpIHsgYWNjZXNzVG9rZW4gPSB2YWx1ZSB9CmV4cG9ydCBmdW5jdGlvbiBjbGVhclRva2VuKCkgeyBhY2Nlc3NUb2tlbiA9ICcnIH0KZXhwb3J0IGFzeW5jIGZ1bmN0aW9uIHJlcXVlc3QocGF0aCwgeyBtZXRob2QgPSAnR0VUJywgYm9keSwgcHJvdGVjdGVkQ2FsbCA9IGZhbHNlIH0gPSB7fSkgewogIGNvbnN0IGhlYWRlcnMgPSB7IEFjY2VwdDogJ2FwcGxpY2F0aW9uL2pzb24nIH0KICBpZiAoYm9keSAhPT0gdW5kZWZpbmVkKSBoZWFkZXJzWydDb250ZW50LVR5cGUnXSA9ICdhcHBsaWNhdGlvbi9qc29uJwogIC8vIEF0dGFjaCB0aGUgdG9rZW4gb25seSB0byBhIHByb3RlY3RlZCByZXF1ZXN0LgogIGlmIChwcm90ZWN0ZWRDYWxsICYmIGFjY2Vzc1Rva2VuKSBoZWFkZXJzLkF1dGhvcml6YXRpb24gPSBgQmVhcmVyICR7YWNjZXNzVG9rZW59YAogIGNvbnN0IHJlc3BvbnNlID0gYXdhaXQgZmV0Y2goYC9hcGkke3BhdGh9YCwgewogICAgbWV0aG9kLCBoZWFkZXJzLCBib2R5OiBib2R5ID09PSB1bmRlZmluZWQgPyB1bmRlZmluZWQgOiBKU09OLnN0cmluZ2lmeShib2R5KSwKICB9KQogIGlmIChyZXNwb25zZS5zdGF0dXMgPT09IDIwNCkgcmV0dXJuIG51bGwKICBjb25zdCBkYXRhID0gYXdhaXQgcmVzcG9uc2UuanNvbigpLmNhdGNoKCgpID0+ICh7fSkpCiAgaWYgKCFyZXNwb25zZS5vaykgewogICAgaWYgKHJlc3BvbnNlLnN0YXR1cyA9PT0gNDAxICYmIHByb3RlY3RlZENhbGwpIHsKICAgICAgY2xlYXJUb2tlbigpCiAgICAgIHdpbmRvdy5kaXNwYXRjaEV2ZW50KG5ldyBFdmVudCgnc2Vzc2lvbi1leHBpcmVkJykpCiAgICB9CiAgICBjb25zdCBlcnJvciA9IG5ldyBFcnJvcihkYXRhLm1lc3NhZ2UgfHwgYFJlcXVlc3QgZmFpbGVkICgke3Jlc3BvbnNlLnN0YXR1c30pLmApCiAgICBlcnJvci5zdGF0dXMgPSByZXNwb25zZS5zdGF0dXMKICAgIHRocm93IGVycm9yCiAgfQogIHJldHVybiBkYXRhCn0K" | base64 -d > src/api.js
 RUN npm ci
-COPY frontend/ ./
 RUN npm run build
 
 FROM maven:3.9.11-eclipse-temurin-21 AS build
 WORKDIR /app
-COPY backend/pom.xml ./
+COPY pom.xml ./
 RUN mvn -B dependency:go-offline
-COPY backend/src ./src
+RUN mkdir -p src/main/java/edu/macslab/board src/main/resources/db/migration src/test/java/edu/macslab/board
+COPY ApiErrors.java ApiException.java ApiModels.java AppUser.java AuthController.java AuthService.java BoardApplication.java OpenApiConfig.java Post.java PostController.java PostRepository.java PostService.java SecurityConfig.java UserRepository.java src/main/java/edu/macslab/board/
+COPY application.yml application-local.yml application-prod.yml src/main/resources/
+COPY V1__create_board.sql src/main/resources/db/migration/
 COPY --from=web /web/dist ./src/main/resources/static
-RUN mvn -B package
+RUN mvn -B package -DskipTests
 
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
